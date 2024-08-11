@@ -62,7 +62,8 @@ h1, h2, h3, h4, h5, h6, p {
   color: $theme-text-color;
 }
 
-#hospitale {
-  background-color: rgba(255, 255, 255, 0)
+/* Defined custom class in generate_circle_svg function to be able to modify the font size of the nanoplot text only */ 
+div.html-fill-item.html-fill-container text:not(.circle-text) {
+  font-size: 6em; /* This will exclude text elements with the 'circle-text' class */
 }
 

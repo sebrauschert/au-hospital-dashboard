@@ -17,40 +17,116 @@ library(jsonlite)
 library(leaflet)
 library(htmlwidgets)
 library(gt)
+library(htmltools)
+library(bsicons)
+library(bslib)
 
-# Get longitude and latitude
-
-url <- "https://myhospitalsapi.aihw.gov.au//api/v1/reporting-units"
-
-# Make the GET request
-response <- GET(url)
-
-# Check if the request was successful
-if (status_code(response) == 200) {
-  # Parse the response content
-  datasets <- content(response, as = "text", encoding = "UTF-8")
-  datasets <- fromJSON(datasets, flatten = TRUE)
+# Function to retrieve datasets, extract relevant information, and add columns
+fetch_and_process_data <- function(url, data_set_id = NULL, data_set_name = NULL) {
+  response <- GET(url)
   
-  # Display the list of datasets
-  print(datasets$result)
-} else {
-  # Print the error message
-  print(paste("Failed to fetch datasets:", status_code(response)))
+  if (status_code(response) == 200) {
+    datasets <- content(response, as = "text", encoding = "UTF-8") %>%
+      fromJSON(flatten = TRUE) %>%
+      .$result
+    
+    if (!is.null(data_set_id) && !is.null(data_set_name)) {
+      datasets <- datasets %>%
+        mutate(data_set_name = data_set_name) %>%
+        mutate(
+          year = str_extract(data_set_name, "\\d{4}-\\d{2}") %>% str_sub(1, 4),
+          month = str_extract(data_set_name, "\\d{4}-\\d{2}") %>% str_sub(6, 7)
+        )
+    }
+    return(datasets)
+  } else {
+    warning(paste("Failed to fetch data from URL:", url))
+    return(NULL)
+  }
+}
+
+# Function to retrieve datasets and add data_set_name
+fetch_data_set <- function(data_set_id, data_set_name) {
+  # Define the API endpoint
+  url <- paste0("https://myhospitalsapi.aihw.gov.au/api/v1/datasets/", data_set_id, "/data-items")
+  
+  # Make the GET request
+  response <- GET(url)
+  
+  # Check if the request was successful
+  if (status_code(response) == 200) {
+    # Parse the response content
+    datasets <- content(response, as = "text", encoding = "UTF-8")
+    datasets <- fromJSON(datasets, flatten = TRUE)
+    
+    # Add the data_set_name column
+    datasets <- datasets$result |>
+      mutate(data_set_name = data_set_name) |>
+      mutate(
+        year = str_extract(data_set_name, "\\d{4}-\\d{2}") %>% str_sub(1, 4),
+        month = str_extract(data_set_name, "\\d{4}-\\d{2}") %>% str_sub(6, 7)
+      )
+    
+    return(datasets)
+  } else {
+    warning(paste("Failed to retrieve data for data_set_id:", data_set_id))
+    return(NULL)
+  }
 }
 
 
-hospitals <- datasets$result |>
-  select(longitude, latitude, reporting_unit_name)
+# Fetch longitude and latitude
+hospitals_url <- "https://myhospitalsapi.aihw.gov.au//api/v1/reporting-units"
+hospitals <- fetch_and_process_data(hospitals_url)
+
+# Fetch datasets
+datasets_url <- "https://myhospitalsapi.aihw.gov.au//api/v1/datasets"
+datasets <- fetch_and_process_data(datasets_url)
+
+# Filter for mental health data
+mental <- datasets %>%
+  filter(reported_measure_summary.reported_measure_name == "Mental health")
+
+# Apply the function to all data_set_ids and combine results
+combined_data <- bind_rows(
+  lapply(1:nrow(mental), function(i) {
+    fetch_data_set(mental$data_set_id[i], mental$data_set_name[i])
+  })
+)
+
+# Select only the relevant columns from the hospital dataset
+hospital_selected <- hospitals %>%
+  select(reporting_unit_code, reporting_unit_name, reporting_unit_type.reporting_unit_type_name)
+
+# Merge combined_data with the selected columns from hospital
+merged_data <- merge(combined_data, hospital_selected, 
+                     by.x = "reporting_unit_summary.reporting_unit_code", 
+                     by.y = "reporting_unit_code", 
+                     all.x = TRUE)
+
+# Summarize data
+summarized_data <- merged_data %>%
+  select(reporting_unit_summary.reporting_unit_name, value, year) %>%
+  group_by(reporting_unit_summary.reporting_unit_name) %>%
+  summarise(
+    year_range = paste(min(year), max(year), sep = " - "),
+    values_list = list(value)
+  )
 
 ```
 
 ```{r, showdata}
-head(hospitals,20) |> 
+#| echo: false
+
+# Creating the gt table
+summarized_data |> 
+  mutate(Condition = "Mental Health") |>
   gt(id = "custom") |>
   cols_label(
-    longitude = md("**Longitude**"),
-    latitude = md("**Latitude**"),
-    reporting_unit_name = md("**Provider Name**")
+    reporting_unit_summary.reporting_unit_name = md("**Hospital**"),
+    year_range = md("**Year Range**"),
+    values_list = md("**Values (List)**"),
+    Condition = md("**Condition**")
   ) |> 
   tab_options(
     table.font.color = "#FFFFFF",
@@ -65,23 +141,6 @@ head(hospitals,20) |>
     footnotes.background.color = "#282828",
     source_notes.background.color = "#282828"
   ) |> 
-  # opt_interactive(
-  #   active = TRUE,
-  #   use_pagination = TRUE,
-  #   use_pagination_info = TRUE,
-  #   use_sorting = TRUE,
-  #   use_search = TRUE,
-  #   use_filters = TRUE,
-  #   use_resizers = FALSE,
-  #   use_highlight = FALSE,
-  #   use_compact_mode = FALSE,
-  #   use_text_wrapping = FALSE,
-  #   use_page_size_select = FALSE,
-  #   page_size_default = 25,
-  #   page_size_values = c(10, 25, 50, 100),
-  #   pagination_type = c("numbers", "jump", "simple"),
-  #   height = "auto"
-  # ) |>
   tab_style_body(
     style = cell_borders(
       sides = c("top", "bottom"),
@@ -98,6 +157,10 @@ head(hospitals,20) |>
     table tr:hover {
       background-color: #383838;
     }
+    
+    .cell-output-display {
+      overflow-x: unset !important;
+    }
 
     div#custom {
       overflow-x: unset !important;
@@ -112,10 +175,21 @@ head(hospitals,20) |>
     "
   ) |>
   cols_align(
-  align = "left",
-  columns = everything()
-  ) 
-
+    align = "left",
+    columns = everything()
+  )  |>
+  cols_nanoplot(
+    columns = values_list,
+    plot_type = "line",
+    new_col_name = "trend",
+    new_col_label = md("**Trend of Admissions**"),
+    options = nanoplot_options(
+      data_point_fill_color = "tomato",
+      data_point_stroke_color = "tomato",
+      data_area_fill_color = "tomato",
+      data_line_stroke_color = "darkred"
+    )
+  )
 ```
 
 ## Column {width="55%"}
@@ -124,6 +198,15 @@ head(hospitals,20) |>
 
 #### Column {width="33%"}
 Stat 1
+```{r, valuebox}
+# bslib::value_box(
+#   title = "Maximum cases admitted",
+#   value = "XXX cases",
+#   tags$p("Hospital"),
+#   tags$p("Year"),
+#   showcase = bsicons::bs_icon("calendar")
+# )
+```
 
 #### Column {width="33%"}
 Stat 2
@@ -134,7 +217,7 @@ Stat 3
 
 ### Row {height="80%"}
 
-```{r}
+```{r, leafletmap}
 #| include: false
 #| echo: false
 # Create leaflet map
