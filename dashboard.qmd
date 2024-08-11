@@ -1,8 +1,8 @@
 ---
-title: "Australian Hospital Stats"
+title: "Australian Hospital Statistics"
 format:
   dashboard:
-    logo: "images/logo.png"
+    logo: "images/logo_1.png"
     orientation: columns
 ---
 
@@ -45,7 +45,7 @@ hospitals <- datasets$result |>
 ```
 
 ```{r, showdata}
-hospitals |> 
+head(hospitals,20) |> 
   gt(id = "custom") |>
   cols_label(
     longitude = md("**Longitude**"),
@@ -70,14 +70,14 @@ hospitals |>
   #   use_pagination = TRUE,
   #   use_pagination_info = TRUE,
   #   use_sorting = TRUE,
-  #   use_search = FALSE,
-  #   use_filters = FALSE,
+  #   use_search = TRUE,
+  #   use_filters = TRUE,
   #   use_resizers = FALSE,
   #   use_highlight = FALSE,
   #   use_compact_mode = FALSE,
-  #   use_text_wrapping = TRUE,
+  #   use_text_wrapping = FALSE,
   #   use_page_size_select = FALSE,
-  #   page_size_default = 50,
+  #   page_size_default = 25,
   #   page_size_values = c(10, 25, 50, 100),
   #   pagination_type = c("numbers", "jump", "simple"),
   #   height = "auto"
@@ -94,16 +94,16 @@ hospitals |>
     table tr:nth-child(odd) {
       background-color: #282828;
     }
-      
+
     table tr:hover {
       background-color: #383838;
     }
-    
+
     div#custom {
       overflow-x: unset !important;
       overflow-y: unset !important;
     }
-    
+
     #custom .gt_col_heading {
        position: sticky !important;
        top: -5px !important;
@@ -120,6 +120,17 @@ hospitals |>
 
 ## Column {width="55%"}
 
+### Row {height="20%"}
+
+#### Column {width="33%"}
+Stat 1
+
+#### Column {width="33%"}
+Stat 2
+
+#### Column {width="33%"}
+Stat 3
+
 
 ### Row {height="80%"}
 
@@ -127,46 +138,54 @@ hospitals |>
 #| include: false
 #| echo: false
 # Create leaflet map
-# Create the Leaflet map
+# Create a custom icon for the hospitals
+hospital_icon <- makeIcon(
+  iconUrl = "images/pin.png",  # Example hospital icon URL
+  iconWidth = 30,    # Adjust width
+  iconHeight = 30,   # Adjust height
+  iconAnchorX = 15,  # Center the icon horizontally
+  iconAnchorY = 30   # Anchor the icon at the bottom
+)
+
+# Create a leaflet map with customized cluster markers and hospital icon
 map <- leaflet(hospitals) %>%
   addTiles() %>%
-  addMarkers(~longitude, ~latitude, popup = ~reporting_unit_name,
-             clusterOptions = markerClusterOptions()) %>%
-  setView(lng = 133.7751, lat = -25.2744, zoom = 4) %>%  # Centered on Australia
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addMarkers(
+    ~longitude, ~latitude, 
+    popup = ~reporting_unit_name,
+    icon = hospital_icon,  # Use the custom hospital icon
+    clusterOptions = markerClusterOptions(
+      iconCreateFunction = JS("function(cluster) {
+        return new L.DivIcon({ 
+          html: '<div style=\"background-color: tomato; color: white; border-radius: 50%; text-align: center; line-height: 30px; width: 30px; height: 30px;\">' + cluster.getChildCount() + '</div>', 
+          className: 'my-cluster-icon'
+        });
+      }")
+    )
+  ) %>%
+  setView(lng = 133.7751, lat = -25.2744, zoom = 4) %>%
   addEasyButton(easyButton(
     icon = "fa-globe",  # Font Awesome globe icon
     title = "Re-center",
-    onClick = JS("function(btn, map) { map.setView([ -25.2744, 133.7751 ], 4); }")  # Set to the original view
+    onClick = JS("function(btn, map) { map.setView([ -25.2744, 133.7751 ], 4); }")
   ))
+
 # Save the map to an HTML file
 saveWidget(map, "hospitals_map.html", selfcontained = TRUE)
 
 ```
 
 <!-- Iframe for displaying the Leaflet map -->
-<style>
-.leaflet-layer,
-.leaflet-control-zoom-in,
-.leaflet-control-zoom-out,
-.leaflet-control-attribution {
-  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
-}
-</style>
 
 <iframe id="map-iframe" src="hospitals_map.html" width="100%" height="100%"></iframe>
 
 <!-- Button to pop out the iframe -->
-<button onclick="popOutIframe()">Pop Out Map</button>
+<button style="background-color: #191414; border:none; color:white;" onclick="popOutIframe()">Full screen</button>
 
 <script>
 function popOutIframe() {
   var iframeSrc = document.getElementById('map-iframe').src;
   window.open(iframeSrc, 'Map', 'width=800,height=600');
 }
-</script>
-
-
-
-### Row {height="20%"}
-
-Placeholder text row 3
+</script> 
