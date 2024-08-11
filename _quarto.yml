@@ -2,7 +2,7 @@ project:
   type: website
 
 website:
-  title: "au-hospital-dashboard"
+  title: "Australian Hospital Dashboard"
   sidebar:
     contents:
       - href: index.qmd
