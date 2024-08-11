@@ -14,23 +14,94 @@ Placeholder text column 1
 #| echo: false
 #| include: false
 library(tidyverse)
+library(httr)
+library(jsonlite)
+library(leaflet)
+library(htmlwidgets)
+
+
+# Get longitude and latitude
+
+url <- "https://myhospitalsapi.aihw.gov.au//api/v1/reporting-units"
+
+# Make the GET request
+response <- GET(url)
+
+# Check if the request was successful
+if (status_code(response) == 200) {
+  # Parse the response content
+  datasets <- content(response, as = "text", encoding = "UTF-8")
+  datasets <- fromJSON(datasets, flatten = TRUE)
+  
+  # Display the list of datasets
+  print(datasets$result)
+} else {
+  # Print the error message
+  print(paste("Failed to fetch datasets:", status_code(response)))
+}
+
+
+hospitals <- datasets$result |>
+  select(longitude, latitude, reporting_unit_name)
+
 ```
 
 ```{r, showstarwarsdata}
-head(starwars)
+head(hospitals)
 ```
 
 ## Column {width="65%"}
 
 Placeholder text column 2
 
-### Row {height="10%"}
 
-Placeholder text row 1
+### Row {height="80%"}
 
-### Row {height="70%"}
+```{r}
+#| include: false
+#| echo: false
+# Create leaflet map
+# Create the Leaflet map
+map <- leaflet(hospitals) %>%
+  addTiles(urlTemplate = "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png",
+           attribution = 'Map tiles by <a href="https://stadiamaps.com">Stadia Maps</a>, under <a href="https://stadiamaps.com/terms">terms</a>. Data by <a href="https://openstreetmap.org">OpenStreetMap</a>, under ODbL.') %>%
+  #addTiles() %>%
+  addMarkers(~longitude, ~latitude, popup = ~reporting_unit_name,
+             clusterOptions = markerClusterOptions()) %>%
+  setView(lng = 133.7751, lat = -25.2744, zoom = 4) %>%  # Centered on Australia
+  addEasyButton(easyButton(
+    icon = "fa-globe",  # Font Awesome globe icon
+    title = "Re-center",
+    onClick = JS("function(btn, map) { map.setView([ -25.2744, 133.7751 ], 4); }")  # Set to the original view
+  ))
+# Save the map to an HTML file
+saveWidget(map, "hospitals_map.html", selfcontained = TRUE)
 
-Placeholder text row 2
+```
+
+<!-- Iframe for displaying the Leaflet map -->
+<style>
+.leaflet-layer,
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out,
+.leaflet-control-attribution {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+</style>
+
+<iframe id="map-iframe" src="hospitals_map.html" width="100%" height="100%"></iframe>
+
+<!-- Button to pop out the iframe -->
+<button onclick="popOutIframe()">Pop Out Map</button>
+
+<script>
+function popOutIframe() {
+  var iframeSrc = document.getElementById('map-iframe').src;
+  window.open(iframeSrc, 'Map', 'width=800,height=600');
+}
+</script>
+
+
 
 ### Row {height="20%"}
 
