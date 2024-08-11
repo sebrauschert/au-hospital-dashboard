@@ -1,0 +1,1 @@
+Sitemap: https://sebrauschert.github.io/au-hospital-dashboard/sitemap.xml
