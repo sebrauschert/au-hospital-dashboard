@@ -3,8 +3,51 @@
 $body-bg: #181818;
 $body-color: white;
 $link-color: #75AADB;
+$theme-darkest-gray: #191414;
+$theme-medium-gray: #282828;
+$theme-light-gray: #f4f4f4;
+$theme-text-color: white;
+$navbar-bg: $theme-darkest-gray;
 
-// Code blocks
-$code-block-bg-alpha: -.8;
+/* Display options for tables */
+table {
+  display: block;
+  max-width: 100%;
+  overflow: auto;
+}
+td {
+  mid-width: 200px;
+}
+
+/* Change the background colours to a Spotify-like theme */
+body {
+  background-color: $theme-darkest-gray !important;
+}
+.card {
+  --bs-card-border-width: 0px; 
+  --bs-card-bg: $theme-darkest-gray !important;
+}
+.card-body {
+  padding: 0px;
+  color: $theme-text-color !important;
+  background-color: $theme-medium-gray ;
+}
+.navbar {
+  background-color: $theme-medium-gray;
+  color: $theme-text-color;
+}
+:root {
+  --bs-body-bg: $theme-darkest-gray !important;
+  --bs-card-bg: $theme-darkest-gray !important;
+}
 
 
+@import url('https://fonts.googleapis.com/css2?family=Anek+Bangla:wght@700&family=Montserrat&display=swap');
+
+$font-family-sans-serif: 'Montserrat', sans-serif;
+
+
+/* Make all headings and paragraph text white */ 
+h1, h2, h3, h4, h5, h6, p {
+  color: $theme-text-color;
+}
